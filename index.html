@@ -10,17 +10,15 @@
 <body class="bg-gray-50 text-gray-800 antialiased font-sans min-h-screen flex flex-col">
 
   <script>
-    // 1. TU URL DE APPS SCRIPT (Copiada del paso anterior)
-    const API_URL = "https://script.google.com/macros/s/AKfycbzrQOGxauOlMPZ9QVAs0oa5dLKEbpVJxQtWvl-2gA_MeBtNP6FqIk0O4xIhO_IHEgnX2w/exec"; 
-    
-    // 2. TU NÚMERO DE WHATSAPP (Con código de país y área, ej: 5491112345678)
-    const NUMERO_WHATSAPP = "5491130334057"; 
+    // PEGA AQUÍ TU NUEVA URL DE APPS SCRIPT
+    const API_URL = "AQUÍ_PEGA_TU_URL_DE_APPS_SCRIPT"; 
+    const NUMERO_WHATSAPP = "5491100000000"; // Tu número de WhatsApp
   </script>
 
   <!-- NAVBAR -->
   <header class="bg-white shadow-sm sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-      <h1 class="text-xl font-bold text-emerald-700 cursor-pointer flex items-center gap-2" onclick="mostrarVista('catalogo')">
+      <h1 class="text-xl font-bold text-emerald-700 cursor-pointer flex items-center gap-2" onclick="filtrarCategoria('TODAS')">
         <i class="fa-solid fa-store"></i> Mi Catálogo
       </h1>
       <button onclick="toggleCarrito()" class="relative bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full font-medium hover:bg-emerald-100 transition flex items-center gap-2">
@@ -42,7 +40,15 @@
 
     <!-- VISTA 1: CATÁLOGO -->
     <section id="vista-catalogo" class="hidden">
-      <h2 class="text-2xl font-bold mb-6 text-gray-800">Nuestros Productos</h2>
+      <!-- Filtros de Categorías -->
+      <div class="mb-8">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Filtrar por categoría</h3>
+        <div id="categorias-botones" class="flex flex-wrap gap-2">
+          <!-- Botones de categoría generados por JS -->
+        </div>
+      </div>
+
+      <h2 id="titulo-categoria-activa" class="text-2xl font-bold mb-6 text-gray-800">Todos los Productos</h2>
       <div id="grid-productos" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
     </section>
 
@@ -53,18 +59,29 @@
       </button>
       
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Carrusel de Fotos (Hasta 9) -->
         <div>
-          <div class="aspect-square bg-gray-100 rounded-xl overflow-hidden mb-4 border border-gray-100">
+          <div class="aspect-square bg-gray-100 rounded-xl overflow-hidden mb-4 border border-gray-100 relative shadow-inner">
             <img id="detalle-img-principal" src="" alt="" class="w-full h-full object-cover">
           </div>
-          <div id="detalle-miniaturas" class="flex gap-3 overflow-x-auto pb-2"></div>
+          <!-- Miniaturas scrolleables -->
+          <div id="detalle-miniaturas" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin"></div>
         </div>
 
+        <!-- Información -->
         <div class="flex flex-col justify-between">
           <div>
             <span id="detalle-categoria" class="text-xs font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md"></span>
             <h2 id="detalle-nombre" class="text-3xl font-bold text-gray-900 mt-3 mb-2"></h2>
             <p id="detalle-precio" class="text-2xl font-bold text-emerald-700 mb-4"></p>
+            
+            <!-- Selector de Aroma (Si tiene) -->
+            <div id="contenedor-aroma" class="mb-4 hidden">
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Selecciona el Aroma:</label>
+              <select id="select-aroma" class="w-full border border-gray-300 rounded-xl p-3 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+              </select>
+            </div>
+
             <div class="border-t border-b py-4 my-4">
               <h3 class="text-sm font-semibold text-gray-700 mb-2">Descripción</h3>
               <p id="detalle-descripcion" class="text-gray-600 whitespace-pre-line leading-relaxed"></p>
@@ -104,6 +121,8 @@
   <script>
     let productosData = [];
     let carrito = [];
+    let categoriaActual = 'TODAS';
+    let productoActualId = null;
 
     document.addEventListener("DOMContentLoaded", () => {
       fetch(API_URL)
@@ -112,6 +131,7 @@
           productosData = data;
           document.getElementById('loading').classList.add('hidden');
           mostrarVista('catalogo');
+          renderizarFiltrosCategorias();
           renderizarCatalogo();
         })
         .catch(err => {
@@ -120,11 +140,34 @@
         });
     });
 
+    function renderizarFiltrosCategorias() {
+      const contenedor = document.getElementById('categorias-botones');
+      const categoriasSet = new Set();
+      productosData.forEach(p => { if(p.categoria) categoriasSet.add(p.categoria); });
+      
+      let html = `<button onclick="filtrarCategoria('TODAS')" class="px-4 py-2 rounded-xl text-sm font-semibold transition ${categoriaActual === 'TODAS' ? 'bg-emerald-600 text-white shadow' : 'bg-white text-gray-600 border hover:bg-gray-50'}">Todas</button>`;
+      
+      categoriasSet.forEach(cat => {
+        html += `<button onclick="filtrarCategoria('${cat}')" class="px-4 py-2 rounded-xl text-sm font-semibold transition ${categoriaActual === cat ? 'bg-emerald-600 text-white shadow' : 'bg-white text-gray-600 border hover:bg-gray-50'}">${cat}</button>`;
+      });
+
+      contenedor.innerHTML = html;
+    }
+
+    function filtrarCategoria(cat) {
+      categoriaActual = cat;
+      document.getElementById('titulo-categoria-activa').innerText = cat === 'TODAS' ? 'Todos los Productos' : cat;
+      renderizarFiltrosCategorias();
+      renderizarCatalogo();
+    }
+
     function renderizarCatalogo() {
       const grid = document.getElementById('grid-productos');
       grid.innerHTML = '';
 
-      productosData.forEach(prod => {
+      const filtrados = categoriaActual === 'TODAS' ? productosData : productosData.filter(p => p.categoria === categoriaActual);
+
+      filtrados.forEach(prod => {
         const tieneStock = prod.stock === 'SI';
         const card = document.createElement('div');
         card.className = `bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition cursor-pointer ${!tieneStock ? 'opacity-60' : ''}`;
@@ -141,7 +184,7 @@
               <p class="text-lg font-bold text-emerald-700 mt-2">$${prod.precio.toLocaleString()}</p>
             </div>
             <button 
-              onclick="agregarAlCarrito('${prod.id}')" 
+              onclick="agregarAlCarritoDesdeCatalogo('${prod.id}')" 
               ${!tieneStock ? 'disabled' : ''}
               class="mt-4 w-full py-2 px-3 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 ${tieneStock ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}">
               <i class="fa-solid fa-cart-plus"></i> ${tieneStock ? 'Agregar' : 'Sin Stock'}
@@ -155,22 +198,25 @@
     function verDetalle(id) {
       const prod = productosData.find(p => p.id === id);
       if (!prod) return;
+      productoActualId = id;
 
       document.getElementById('detalle-nombre').innerText = prod.nombre;
       document.getElementById('detalle-categoria').innerText = prod.categoria;
       document.getElementById('detalle-precio').innerText = `$${prod.precio.toLocaleString()}`;
       document.getElementById('detalle-descripcion').innerText = prod.descripcion || "Sin descripción disponible.";
       
+      // Foto Principal
       const imgPrincipal = document.getElementById('detalle-img-principal');
       imgPrincipal.src = prod.fotos[0];
 
+      // Miniaturas Carrusel (Hasta 9)
       const miniaturasContenedor = document.getElementById('detalle-miniaturas');
       miniaturasContenedor.innerHTML = '';
       
       prod.fotos.forEach((foto, index) => {
         const thumb = document.createElement('img');
         thumb.src = foto;
-        thumb.className = `w-16 h-16 object-cover rounded-lg border-2 cursor-pointer transition ${index === 0 ? 'border-emerald-600' : 'border-transparent hover:border-gray-300'}`;
+        thumb.className = `w-16 h-16 object-cover rounded-lg border-2 cursor-pointer transition flex-shrink-0 ${index === 0 ? 'border-emerald-600' : 'border-transparent hover:border-gray-300'}`;
         thumb.onclick = () => {
           imgPrincipal.src = foto;
           Array.from(miniaturasContenedor.children).forEach(c => c.classList.replace('border-emerald-600', 'border-transparent'));
@@ -179,10 +225,29 @@
         miniaturasContenedor.appendChild(thumb);
       });
 
+      // Configurar Selector de Aromas
+      const contenedorAroma = document.getElementById('contenedor-aroma');
+      const selectAroma = document.getElementById('select-aroma');
+      selectAroma.innerHTML = '';
+
+      if (prod.aromas && prod.aromas.trim() !== "") {
+        const listaAromas = prod.aromas.split(',').map(a => a.trim());
+        listaAromas.forEach(aroma => {
+          const opt = document.createElement('option');
+          opt.value = aroma;
+          opt.innerText = aroma;
+          selectAroma.appendChild(opt);
+        });
+        contenedorAroma.classList.remove('hidden');
+      } else {
+        contenedorAroma.classList.add('hidden');
+      }
+
+      // Acciones Detalle
       const accionesDiv = document.getElementById('detalle-acciones');
       if (prod.stock === 'SI') {
         accionesDiv.innerHTML = `
-          <button onclick="agregarAlCarrito('${prod.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
+          <button onclick="agregarAlCarritoDesdeDetalle('${prod.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
             <i class="fa-solid fa-cart-plus"></i> Agregar al Carrito
           </button>
         `;
@@ -203,28 +268,63 @@
       window.scrollTo(0, 0);
     }
 
-    function agregarAlCarrito(id) {
+    function agregarAlCarritoDesdeCatalogo(id) {
       const prod = productosData.find(p => p.id === id);
       if (!prod || prod.stock !== 'SI') return;
 
-      const itemExistente = carrito.find(item => item.id === id);
+      // Si tiene aromas, lo mandamos al detalle para que elija el aroma obligatoriamente
+      if (prod.aromas && prod.aromas.trim() !== "") {
+        verDetalle(id);
+        return;
+      }
+
+      agregarItemAlCarrito(id, null);
+    }
+
+    function agregarAlCarritoDesdeDetalle(id) {
+      const contenedorAroma = document.getElementById('contenedor-aroma');
+      let aromaSeleccionado = null;
+
+      if (!contenedorAroma.classList.contains('hidden')) {
+        const selectAroma = document.getElementById('select-aroma');
+        aromaSeleccionado = selectAroma.value;
+      }
+
+      agregarItemAlCarrito(id, aromaSeleccionado);
+    }
+
+    function agregarItemAlCarrito(id, aroma) {
+      const prod = productosData.find(p => p.id === id);
+      if (!prod || prod.stock !== 'SI') return;
+
+      // Identificador único por producto + aroma elegido
+      const cartKey = id + (aroma ? `-${aroma}` : '');
+      const itemExistente = carrito.find(item => item.cartKey === cartKey);
+
       if (itemExistente) {
         itemExistente.cantidad++;
       } else {
-        carrito.push({ id: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: 1 });
+        carrito.push({
+          cartKey: cartKey,
+          id: prod.id,
+          nombre: prod.nombre,
+          precio: prod.precio,
+          aroma: aroma,
+          cantidad: 1
+        });
       }
 
       actualizarCarritoUI();
       toggleCarrito(true);
     }
 
-    function cambiarCantidad(id, cambio) {
-      const item = carrito.find(i => i.id === id);
+    function cambiarCantidad(cartKey, cambio) {
+      const item = carrito.find(i => i.cartKey === cartKey);
       if (!item) return;
 
       item.cantidad += cambio;
       if (item.cantidad <= 0) {
-        carrito = carrito.filter(i => i.id !== id);
+        carrito = carrito.filter(i => i.cartKey !== cartKey);
       }
       actualizarCarritoUI();
     }
@@ -259,12 +359,13 @@
         div.innerHTML = `
           <div>
             <h4 class="font-bold text-gray-800 text-sm">${item.nombre}</h4>
+            ${item.aroma ? `<p class="text-xs text-emerald-600 font-medium">Aroma: ${item.aroma}</p>` : ''}
             <p class="text-xs text-gray-500">$${item.precio.toLocaleString()} c/u</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="cambiarCantidad('${item.id}', -1)" class="w-7 h-7 rounded-lg bg-gray-100 font-bold hover:bg-gray-200">-</button>
+            <button onclick="cambiarCantidad('${item.cartKey}', -1)" class="w-7 h-7 rounded-lg bg-gray-100 font-bold hover:bg-gray-200">-</button>
             <span class="text-sm font-semibold w-5 text-center">${item.cantidad}</span>
-            <button onclick="cambiarCantidad('${item.id}', 1)" class="w-7 h-7 rounded-lg bg-gray-100 font-bold hover:bg-gray-200">+</button>
+            <button onclick="cambiarCantidad('${item.cartKey}', 1)" class="w-7 h-7 rounded-lg bg-gray-100 font-bold hover:bg-gray-200">+</button>
           </div>
         `;
         itemsContainer.appendChild(div);
@@ -292,7 +393,8 @@
       carrito.forEach(item => {
         const subtotal = item.precio * item.cantidad;
         total += subtotal;
-        mensaje += `• ${item.cantidad}x ${item.nombre} - $${subtotal.toLocaleString()}\n`;
+        const textoAroma = item.aroma ? ` (Aroma: ${item.aroma})` : '';
+        mensaje += `• ${item.cantidad}x ${item.nombre}${textoAroma} - $${subtotal.toLocaleString()}\n`;
       });
 
       mensaje += `\n*Total Estimado: $${total.toLocaleString()}*\n\n¿Tienen disponibilidad para coordinar la entrega?`;
